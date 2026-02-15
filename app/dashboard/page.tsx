@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import PodcastCard from '@/components/dashboard/PodcastCard'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import ErrorMessage from '@/components/ui/ErrorMessage'
 import type { Podcast } from '@/lib/supabase/types'
 
 export default function DashboardPage() {
@@ -84,20 +86,11 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-5xl px-6 py-8">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="flex items-center gap-3 text-gray-400">
-              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
-              <span>加载中...</span>
-            </div>
+            <LoadingSpinner size="md" text="加载中..." />
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <p className="mb-4 text-red-400">{error}</p>
-            <button
-              onClick={fetchPodcasts}
-              className="rounded-lg bg-gray-800 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
-            >
-              重试
-            </button>
+          <div className="flex items-center justify-center py-20">
+            <ErrorMessage message={error} onRetry={fetchPodcasts} />
           </div>
         ) : podcasts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
