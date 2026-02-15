@@ -228,17 +228,6 @@ export default function WorkspacePage() {
     [podcast, getPathNodes, getChildNodes, loadMoreTopics]
   )
 
-  // Handler: toggle expand on a node
-  const handleToggleExpand = useCallback(
-    (nodeId: string) => {
-      const node = nodes.get(nodeId)
-      if (node) {
-        updateNode(nodeId, { is_expanded: !node.is_expanded })
-      }
-    },
-    [nodes, updateNode]
-  )
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-950">
@@ -271,7 +260,6 @@ export default function WorkspacePage() {
           onGenerateContent={handleGenerateContent}
           onGenerateEnding={handleGenerateEnding}
           onLoadMore={handleLoadMore}
-          onToggleExpand={handleToggleExpand}
           isLoadingMore={isLoadingTopics}
         />
       </div>

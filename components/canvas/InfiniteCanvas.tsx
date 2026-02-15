@@ -16,6 +16,7 @@ import '@xyflow/react/dist/style.css'
 import { usePodcastStore } from '@/lib/store/podcast-store'
 import { useAutoLayout } from './useAutoLayout'
 import { nodeTypes } from './nodeTypes'
+import ContentModal from './ContentModal'
 import type { PodcastNode } from '@/lib/supabase/types'
 
 interface InfiniteCanvasProps {
@@ -23,7 +24,6 @@ interface InfiniteCanvasProps {
   onGenerateContent: (nodeId: string) => void
   onGenerateEnding: (nodeId: string) => void
   onLoadMore: (parentNodeId: string) => void
-  onToggleExpand: (nodeId: string) => void
   isLoadingMore: boolean
 }
 
@@ -32,7 +32,6 @@ function CanvasInner({
   onGenerateContent,
   onGenerateEnding,
   onLoadMore,
-  onToggleExpand,
   isLoadingMore,
 }: InfiniteCanvasProps) {
   const nodes = usePodcastStore((s) => s.nodes)
@@ -68,7 +67,6 @@ function CanvasInner({
           onGenerateContent,
           onGenerateEnding,
           onLoadMore,
-          onToggleExpand,
           isLoadingMore,
         }),
       }
@@ -81,7 +79,6 @@ function CanvasInner({
     onGenerateContent,
     onGenerateEnding,
     onLoadMore,
-    onToggleExpand,
     isLoadingMore,
   ])
 
@@ -121,10 +118,13 @@ function CanvasInner({
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
-      setActiveNode(node.id)
+    (_event: React.MouseEvent, flowNode: Node) => {
+      const podcastNode = nodes.get(flowNode.id)
+      if (podcastNode && (podcastNode.node_type === 'content' || podcastNode.node_type === 'ending')) {
+        setActiveNode(flowNode.id)
+      }
     },
-    [setActiveNode]
+    [nodes, setActiveNode]
   )
 
   return (
@@ -168,6 +168,10 @@ function CanvasInner({
           maskColor="rgba(0, 0, 0, 0.6)"
         />
       </ReactFlow>
+      <ContentModal
+        onExpandTopics={onExpandTopics}
+        onGenerateEnding={onGenerateEnding}
+      />
     </div>
   )
 }
@@ -202,7 +206,6 @@ function buildNodeData(
     onGenerateContent: (nodeId: string) => void
     onGenerateEnding: (nodeId: string) => void
     onLoadMore: (parentNodeId: string) => void
-    onToggleExpand: (nodeId: string) => void
     isLoadingMore: boolean
   }
 ): Record<string, unknown> {
@@ -211,7 +214,6 @@ function buildNodeData(
     onGenerateContent,
     onGenerateEnding,
     onLoadMore,
-    onToggleExpand,
     isLoadingMore,
   } = handlers
 
@@ -233,19 +235,14 @@ function buildNodeData(
       return {
         title: node.title,
         content: node.content,
-        isExpanded: node.is_expanded,
         isStreaming: nodeIsStreaming,
-        onToggleExpand: () => onToggleExpand(node.id),
-        onExpandTopics: () => onExpandTopics(node.id),
       }
     case 'ending':
       return {
         title: node.title,
         content: node.content,
-        isExpanded: node.is_expanded,
         isStreaming: nodeIsStreaming,
         onGenerateEnding: () => onGenerateEnding(node.id),
-        onToggleExpand: () => onToggleExpand(node.id),
       }
     default:
       break
