@@ -32,6 +32,8 @@ export default function WorkspacePage() {
   const podcast = usePodcastStore((s) => s.podcast)
   const nodes = usePodcastStore((s) => s.nodes)
   const reset = usePodcastStore((s) => s.reset)
+  const removeNodes = usePodcastStore((s) => s.removeNodes)
+  const getDescendantIds = usePodcastStore((s) => s.getDescendantIds)
 
   const { generateContent, generateEnding } = useStreamingGeneration()
   const { generateTopics, loadMoreTopics, isLoading: isLoadingTopics } = useTopicGeneration()
@@ -41,6 +43,37 @@ export default function WorkspacePage() {
 
   // Export via dedicated hook
   const { exportMarkdown, isExporting } = useExportMarkdown()
+
+  const pruneSiblings = useCallback(
+    async (committedNodeId: string) => {
+      const node = nodes.get(committedNodeId)
+      if (!node || !node.parent_id) return // root has no siblings
+
+      const siblings = getChildNodes(node.parent_id)
+      const idsToRemove: string[] = []
+
+      for (const sibling of siblings) {
+        if (sibling.id === committedNodeId) continue
+        idsToRemove.push(sibling.id)
+        idsToRemove.push(...getDescendantIds(sibling.id))
+      }
+
+      if (idsToRemove.length === 0) return
+
+      // Optimistic: remove from store immediately
+      removeNodes(idsToRemove)
+
+      // Persist: delete from database
+      if (podcast) {
+        fetch(`/api/podcast/${podcast.id}/nodes`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nodeIds: idsToRemove }),
+        }).catch(err => console.error('Failed to delete pruned nodes:', err))
+      }
+    },
+    [nodes, podcast, getChildNodes, getDescendantIds, removeNodes]
+  )
 
   // Load podcast data on mount
   useEffect(() => {
@@ -82,6 +115,7 @@ export default function WorkspacePage() {
   const handleExpandTopics = useCallback(
     async (parentNodeId: string) => {
       if (!podcast) return
+      await pruneSiblings(parentNodeId)
       const root = getRootNode()
       const pathNodes = getPathNodes()
 
@@ -114,13 +148,14 @@ export default function WorkspacePage() {
         addNodes([endingNode])
       }
     },
-    [podcast, getRootNode, getPathNodes, generateTopics, getChildNodes, addNodes]
+    [podcast, getRootNode, getPathNodes, generateTopics, getChildNodes, addNodes, pruneSiblings]
   )
 
   // Handler: generate content for a node
   const handleGenerateContent = useCallback(
     async (nodeId: string) => {
       if (!podcast) return
+      await pruneSiblings(nodeId)
       const root = getRootNode()
       const pathNodes = getPathNodes()
       const sourceNode = nodes.get(nodeId)
@@ -153,7 +188,7 @@ export default function WorkspacePage() {
         currentTopic: sourceNode.title,
       })
     },
-    [podcast, getRootNode, getPathNodes, nodes, addNodes, generateContent]
+    [podcast, getRootNode, getPathNodes, nodes, addNodes, generateContent, pruneSiblings]
   )
 
   // Handler: generate ending
