@@ -6,7 +6,6 @@ import type { PodcastNode } from '@/lib/supabase/types'
 
 const VERTICAL_GAP = 120
 const HORIZONTAL_SPACING = 280
-const CONTENT_OFFSET_X = 350
 
 interface LayoutPosition {
   id: string
@@ -51,50 +50,35 @@ export function useAutoLayout() {
         x: number,
         y: number,
         depth: number
-      ): { width: number } => {
+      ): { width: number; height: number } => {
         positions.push({ id: node.id, x, y })
 
         const children = childrenMap.get(node.id) || []
 
-        // Separate children into categories
-        const topicChildren = children.filter(
-          (c) => c.node_type === 'topic'
-        )
-        const contentChildren = children.filter(
-          (c) => c.node_type === 'content'
-        )
-        const endingChildren = children.filter(
-          (c) => c.node_type === 'ending'
-        )
-        const moreChildren = children.filter(
-          (c) => c.metadata && c.metadata.isMoreButton
-        )
+        const topicChildren = children.filter(c => c.node_type === 'topic')
+        const contentChildren = children.filter(c => c.node_type === 'content')
+        const endingChildren = children.filter(c => c.node_type === 'ending')
+        const moreChildren = children.filter(c => c.metadata && c.metadata.isMoreButton)
 
-        let totalWidth = 0
-        const childY = y + VERTICAL_GAP
+        let totalWidth = HORIZONTAL_SPACING
+        let currentY = y + VERTICAL_GAP
 
-        // Layout content nodes to the right of the parent
-        contentChildren.forEach((contentNode, idx) => {
-          positions.push({
-            id: contentNode.id,
-            x: x + CONTENT_OFFSET_X + idx * CONTENT_OFFSET_X,
-            y: y,
-          })
-        })
+        // Layout content nodes vertically below parent
+        for (const contentNode of contentChildren) {
+          positions.push({ id: contentNode.id, x, y: currentY })
+          currentY += VERTICAL_GAP
+        }
 
-        // Layout topic children below
+        // Layout topic children below content
         if (topicChildren.length > 0) {
           const childWidths: number[] = []
+          const childHeights: number[] = []
 
-          // First pass: get widths of each subtree
+          // First pass: get dimensions of each subtree
           for (const child of topicChildren) {
-            const result = layoutNode(
-              child,
-              0,
-              childY,
-              depth + 1
-            )
+            const result = layoutNode(child, 0, currentY, depth + 1)
             childWidths.push(Math.max(result.width, HORIZONTAL_SPACING))
+            childHeights.push(result.height)
           }
 
           const totalChildrenWidth = childWidths.reduce((a, b) => a + b, 0)
@@ -103,11 +87,10 @@ export function useAutoLayout() {
           // Second pass: assign final positions
           for (let i = 0; i < topicChildren.length; i++) {
             const childX = offsetX + childWidths[i] / 2
-            // Update the positions for this child subtree
             updateSubtreePosition(
               topicChildren[i],
               childX,
-              childY,
+              currentY,
               positions,
               childrenMap
             )
@@ -115,47 +98,34 @@ export function useAutoLayout() {
           }
 
           totalWidth = Math.max(totalChildrenWidth, HORIZONTAL_SPACING)
-        } else {
-          totalWidth = HORIZONTAL_SPACING
+          currentY += Math.max(...childHeights)
         }
 
-        // Layout ending node at the bottom of topic children
-        const lastTopicY =
-          topicChildren.length > 0 ? childY : y
-        endingChildren.forEach((endingNode) => {
-          const endingPos = positions.find((p) => p.id === endingNode.id)
+        // Layout ending node below topics
+        for (const endingNode of endingChildren) {
+          const endingPos = positions.find(p => p.id === endingNode.id)
           if (endingPos) {
             endingPos.x = x
-            endingPos.y = lastTopicY + VERTICAL_GAP
+            endingPos.y = currentY
           } else {
-            positions.push({
-              id: endingNode.id,
-              x: x,
-              y: lastTopicY + VERTICAL_GAP,
-            })
+            positions.push({ id: endingNode.id, x, y: currentY })
           }
-        })
+          currentY += VERTICAL_GAP
+        }
 
-        // Layout "more" button below the last topic child
-        moreChildren.forEach((moreNode) => {
-          const moreY =
-            endingChildren.length > 0
-              ? lastTopicY + VERTICAL_GAP * 2
-              : lastTopicY + VERTICAL_GAP
-          const morePos = positions.find((p) => p.id === moreNode.id)
+        // Layout "more" button below ending
+        for (const moreNode of moreChildren) {
+          const morePos = positions.find(p => p.id === moreNode.id)
           if (morePos) {
             morePos.x = x
-            morePos.y = moreY
+            morePos.y = currentY
           } else {
-            positions.push({
-              id: moreNode.id,
-              x: x,
-              y: moreY,
-            })
+            positions.push({ id: moreNode.id, x, y: currentY })
           }
-        })
+          currentY += VERTICAL_GAP
+        }
 
-        return { width: totalWidth }
+        return { width: totalWidth, height: currentY - y }
       }
 
       layoutNode(rootNode, 0, 0, 0)
