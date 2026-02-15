@@ -65,4 +65,47 @@ describe('PodcastStore', () => {
     usePodcastStore.getState().markDirty()
     expect(usePodcastStore.getState().autoSaveState.isDirty).toBe(true)
   })
+
+  it('getDescendantIds collects all descendants via BFS', () => {
+    const nodes = [
+      makeNode({ id: 'root', node_type: 'root', parent_id: null }),
+      makeNode({ id: 'a', parent_id: 'root' }),
+      makeNode({ id: 'b', parent_id: 'root' }),
+      makeNode({ id: 'a1', parent_id: 'a' }),
+      makeNode({ id: 'a2', parent_id: 'a' }),
+      makeNode({ id: 'a1x', parent_id: 'a1' }),
+    ]
+    usePodcastStore.getState().setNodes(nodes)
+    const descendants = usePodcastStore.getState().getDescendantIds('a')
+    expect(descendants.sort()).toEqual(['a1', 'a1x', 'a2'].sort())
+  })
+
+  it('getDescendantIds returns empty array for leaf node', () => {
+    const nodes = [
+      makeNode({ id: 'root', node_type: 'root', parent_id: null }),
+      makeNode({ id: 'leaf', parent_id: 'root' }),
+    ]
+    usePodcastStore.getState().setNodes(nodes)
+    expect(usePodcastStore.getState().getDescendantIds('leaf')).toEqual([])
+  })
+
+  it('removeNodes deletes nodes and cleans selectedPath', () => {
+    const nodes = [
+      makeNode({ id: 'root', node_type: 'root', parent_id: null }),
+      makeNode({ id: 'a', parent_id: 'root' }),
+      makeNode({ id: 'b', parent_id: 'root' }),
+      makeNode({ id: 'c', parent_id: 'root' }),
+    ]
+    usePodcastStore.getState().setNodes(nodes)
+    usePodcastStore.getState().addToPath('a')
+    usePodcastStore.getState().addToPath('b')
+
+    usePodcastStore.getState().removeNodes(['b', 'c'])
+
+    expect(usePodcastStore.getState().nodes.size).toBe(2) // root + a
+    expect(usePodcastStore.getState().nodes.has('b')).toBe(false)
+    expect(usePodcastStore.getState().nodes.has('c')).toBe(false)
+    expect(usePodcastStore.getState().selectedPath).toEqual(['a'])
+    expect(usePodcastStore.getState().autoSaveState.isDirty).toBe(true)
+  })
 })

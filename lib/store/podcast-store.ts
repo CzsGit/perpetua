@@ -93,6 +93,38 @@ export const usePodcastStore = create<PodcastStoreState>((set, get) => ({
     return Array.from(nodes.values()).find(n => n.node_type === 'root')
   },
 
+  removeNodes: (ids: string[]) => {
+    set(state => {
+      const newMap = new Map(state.nodes)
+      for (const id of ids) {
+        newMap.delete(id)
+      }
+      const removedSet = new Set(ids)
+      const newPath = state.selectedPath.filter(id => !removedSet.has(id))
+      return {
+        nodes: newMap,
+        selectedPath: newPath,
+        autoSaveState: { ...state.autoSaveState, isDirty: true },
+      }
+    })
+  },
+
+  getDescendantIds: (nodeId: string) => {
+    const { nodes } = get()
+    const descendants: string[] = []
+    const queue = [nodeId]
+    while (queue.length > 0) {
+      const currentId = queue.shift()!
+      for (const node of nodes.values()) {
+        if (node.parent_id === currentId) {
+          descendants.push(node.id)
+          queue.push(node.id)
+        }
+      }
+    }
+    return descendants
+  },
+
   reset: () => set({
     podcast: null,
     nodes: new Map(),

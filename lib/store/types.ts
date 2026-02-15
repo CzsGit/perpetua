@@ -38,5 +38,7 @@ export interface PodcastStoreState {
   getPathNodes: () => PodcastNode[]
   getChildNodes: (parentId: string) => PodcastNode[]
   getRootNode: () => PodcastNode | undefined
+  removeNodes: (ids: string[]) => void
+  getDescendantIds: (nodeId: string) => string[]
   reset: () => void
 }
