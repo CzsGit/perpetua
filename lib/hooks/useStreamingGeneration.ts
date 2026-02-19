@@ -1,7 +1,7 @@
 'use client'
 
 import { usePodcastStore } from '@/lib/store/podcast-store'
-import type { PodcastNode } from '@/lib/supabase/types'
+import type { PodcastNode, ScriptStyle } from '@/lib/supabase/types'
 
 export function useStreamingGeneration() {
   const appendToNodeContent = usePodcastStore((s) => s.appendToNodeContent)
@@ -15,6 +15,9 @@ export function useStreamingGeneration() {
     rootTopic: string
     pathNodes: PodcastNode[]
     currentTopic: string
+    scriptStyle?: ScriptStyle
+    hostName?: string
+    coHostName?: string | null
   }) => {
     setStreaming({ isStreaming: true, targetNodeId: params.nodeId, buffer: '' })
     updateNode(params.nodeId, { is_expanded: true, content: '' })
@@ -93,6 +96,9 @@ export function useStreamingGeneration() {
     nodeId: string
     rootTopic: string
     pathNodes: PodcastNode[]
+    scriptStyle?: ScriptStyle
+    hostName?: string
+    coHostName?: string | null
   }) => {
     setStreaming({ isStreaming: true, targetNodeId: params.nodeId, buffer: '' })
     updateNode(params.nodeId, { is_expanded: true, content: '' })

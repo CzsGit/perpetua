@@ -12,6 +12,7 @@ import InfiniteCanvas from '@/components/canvas/InfiniteCanvas'
 import TopBar from '@/components/studio/TopBar'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ErrorMessage from '@/components/ui/ErrorMessage'
+import Toast, { useToastStore } from '@/components/ui/Toast'
 import type { PodcastNode } from '@/lib/supabase/types'
 
 export default function WorkspacePage() {
@@ -25,15 +26,15 @@ export default function WorkspacePage() {
   const setPodcast = usePodcastStore((s) => s.setPodcast)
   const setNodes = usePodcastStore((s) => s.setNodes)
   const addNodes = usePodcastStore((s) => s.addNodes)
-  const updateNode = usePodcastStore((s) => s.updateNode)
   const getPathNodes = usePodcastStore((s) => s.getPathNodes)
   const getChildNodes = usePodcastStore((s) => s.getChildNodes)
-  const getRootNode = usePodcastStore((s) => s.getRootNode)
   const podcast = usePodcastStore((s) => s.podcast)
   const nodes = usePodcastStore((s) => s.nodes)
   const reset = usePodcastStore((s) => s.reset)
   const removeNodes = usePodcastStore((s) => s.removeNodes)
   const getDescendantIds = usePodcastStore((s) => s.getDescendantIds)
+
+  const showToast = useToastStore((s) => s.show)
 
   const { generateContent, generateEnding } = useStreamingGeneration()
   const { generateTopics, loadMoreTopics, isLoading: isLoadingTopics } = useTopicGeneration()
@@ -116,17 +117,38 @@ export default function WorkspacePage() {
     async (parentNodeId: string) => {
       if (!podcast) return
       await pruneSiblings(parentNodeId)
-      const root = getRootNode()
+
+      // Clear existing children before generating new topics
+      const existingChildren = getChildNodes(parentNodeId)
+      if (existingChildren.length > 0) {
+        const idsToRemove: string[] = []
+        for (const child of existingChildren) {
+          idsToRemove.push(child.id)
+          idsToRemove.push(...getDescendantIds(child.id))
+        }
+        removeNodes(idsToRemove)
+        fetch(`/api/podcast/${podcast.id}/nodes`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nodeIds: idsToRemove }),
+        }).catch(err => console.error('Failed to delete old children:', err))
+      }
+
       const pathNodes = getPathNodes()
 
-      await generateTopics({
+      const result = await generateTopics({
         podcastId: podcast.id,
         parentNodeId,
         rootTopic: podcast.root_topic,
         pathNodes,
       })
 
-      // Add ending node after topic generation
+      if (!result.ok) {
+        showToast(`话题生成失败: ${result.error}`, 'error')
+        return
+      }
+
+      // Add ending node only after successful topic generation
       const children = getChildNodes(parentNodeId)
       const hasEnding = children.some((c) => c.node_type === 'ending')
       if (!hasEnding) {
@@ -148,7 +170,7 @@ export default function WorkspacePage() {
         addNodes([endingNode])
       }
     },
-    [podcast, getRootNode, getPathNodes, generateTopics, getChildNodes, addNodes, pruneSiblings]
+    [podcast, getPathNodes, generateTopics, getChildNodes, getDescendantIds, removeNodes, addNodes, pruneSiblings, showToast]
   )
 
   // Handler: generate content for a node
@@ -156,7 +178,6 @@ export default function WorkspacePage() {
     async (nodeId: string) => {
       if (!podcast) return
       await pruneSiblings(nodeId)
-      const root = getRootNode()
       const pathNodes = getPathNodes()
       const sourceNode = nodes.get(nodeId)
       if (!sourceNode) return
@@ -186,9 +207,12 @@ export default function WorkspacePage() {
         rootTopic: podcast.root_topic,
         pathNodes,
         currentTopic: sourceNode.title,
+        scriptStyle: podcast.script_style,
+        hostName: podcast.host_name,
+        coHostName: podcast.co_host_name,
       })
     },
-    [podcast, getRootNode, getPathNodes, nodes, addNodes, generateContent, pruneSiblings]
+    [podcast, getPathNodes, nodes, addNodes, generateContent, pruneSiblings]
   )
 
   // Handler: generate ending
@@ -202,6 +226,9 @@ export default function WorkspacePage() {
         nodeId,
         rootTopic: podcast.root_topic,
         pathNodes,
+        scriptStyle: podcast.script_style,
+        hostName: podcast.host_name,
+        coHostName: podcast.co_host_name,
       })
     },
     [podcast, getPathNodes, generateEnding]
@@ -217,15 +244,19 @@ export default function WorkspacePage() {
         .filter((c) => c.node_type === 'topic')
         .map((c) => c.title)
 
-      await loadMoreTopics({
+      const result = await loadMoreTopics({
         podcastId: podcast.id,
         parentNodeId,
         rootTopic: podcast.root_topic,
         pathNodes,
         existingTitles,
       })
+
+      if (!result.ok) {
+        showToast(`加载更多话题失败: ${result.error}`, 'error')
+      }
     },
-    [podcast, getPathNodes, getChildNodes, loadMoreTopics]
+    [podcast, getPathNodes, getChildNodes, loadMoreTopics, showToast]
   )
 
   if (loading) {
@@ -263,6 +294,7 @@ export default function WorkspacePage() {
           isLoadingMore={isLoadingTopics}
         />
       </div>
+      <Toast />
     </div>
   )
 }

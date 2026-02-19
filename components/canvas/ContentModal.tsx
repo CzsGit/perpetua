@@ -1,11 +1,71 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { usePodcastStore } from '@/lib/store/podcast-store'
 
 interface ContentModalProps {
   onExpandTopics: (parentNodeId: string) => void
   onGenerateEnding: (nodeId: string) => void
+}
+
+interface DialogueLine {
+  speaker: 'host' | 'cohost' | 'narration'
+  name: string
+  text: string
+}
+
+function parseDialogueContent(
+  content: string,
+  hostName: string,
+  coHostName: string
+): DialogueLine[] {
+  const lines: DialogueLine[] = []
+  const rawLines = content.split('\n')
+
+  for (const line of rawLines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    if (trimmed.startsWith(hostName + '：') || trimmed.startsWith(hostName + ':')) {
+      const sep = trimmed.indexOf('：') !== -1 ? '：' : ':'
+      lines.push({
+        speaker: 'host',
+        name: hostName,
+        text: trimmed.slice(trimmed.indexOf(sep) + 1).trim(),
+      })
+    } else if (trimmed.startsWith(coHostName + '：') || trimmed.startsWith(coHostName + ':')) {
+      const sep = trimmed.indexOf('：') !== -1 ? '：' : ':'
+      lines.push({
+        speaker: 'cohost',
+        name: coHostName,
+        text: trimmed.slice(trimmed.indexOf(sep) + 1).trim(),
+      })
+    } else {
+      // Append to previous line if it's continuation, or treat as narration
+      if (lines.length > 0) {
+        lines[lines.length - 1].text += '\n' + trimmed
+      } else {
+        lines.push({ speaker: 'narration', name: '', text: trimmed })
+      }
+    }
+  }
+
+  return lines
+}
+
+const speakerStyles = {
+  host: {
+    badge: 'bg-indigo-500/20 text-indigo-300',
+    border: 'border-l-indigo-500/40',
+  },
+  cohost: {
+    badge: 'bg-teal-500/20 text-teal-300',
+    border: 'border-l-teal-500/40',
+  },
+  narration: {
+    badge: '',
+    border: 'border-l-gray-600/40',
+  },
 }
 
 export default function ContentModal({
@@ -14,9 +74,19 @@ export default function ContentModal({
 }: ContentModalProps) {
   const activeNodeId = usePodcastStore((s) => s.activeNodeId)
   const nodes = usePodcastStore((s) => s.nodes)
+  const podcast = usePodcastStore((s) => s.podcast)
   const setActiveNode = usePodcastStore((s) => s.setActiveNode)
 
   const node = activeNodeId ? nodes.get(activeNodeId) : null
+
+  const isDialogue = podcast?.script_style === 'dialogue'
+  const hostName = podcast?.host_name || '主播'
+  const coHostName = podcast?.co_host_name || '搭档'
+
+  const dialogueLines = useMemo(() => {
+    if (!isDialogue || !node?.content) return null
+    return parseDialogueContent(node.content, hostName, coHostName)
+  }, [isDialogue, node?.content, hostName, coHostName])
 
   const handleClose = useCallback(() => {
     setActiveNode(null)
@@ -83,9 +153,29 @@ export default function ContentModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {hasContent ? (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
-              {node.content}
-            </p>
+            isDialogue && dialogueLines ? (
+              <div className="space-y-3">
+                {dialogueLines.map((line, i) => {
+                  const styles = speakerStyles[line.speaker]
+                  return (
+                    <div key={i} className={`border-l-2 pl-3 ${styles.border}`}>
+                      {line.speaker !== 'narration' && (
+                        <span className={`mb-1 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${styles.badge}`}>
+                          {line.name}
+                        </span>
+                      )}
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
+                        {line.text}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
+                {node.content}
+              </p>
+            )
           ) : (
             <p className="text-sm text-gray-500">暂无内容</p>
           )}

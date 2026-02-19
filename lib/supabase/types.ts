@@ -1,5 +1,6 @@
 export type NodeType = 'root' | 'topic' | 'content' | 'ending'
 export type PodcastStatus = 'draft' | 'completed'
+export type ScriptStyle = 'dialogue' | 'monologue'
 
 export type Podcast = {
   id: string
@@ -7,6 +8,9 @@ export type Podcast = {
   title: string
   root_topic: string
   status: PodcastStatus
+  script_style: ScriptStyle
+  host_name: string
+  co_host_name: string | null
   canvas_state: Record<string, unknown>
   created_at: string
   updated_at: string
@@ -63,6 +67,9 @@ export type Database = {
           title: string
           root_topic: string
           status?: PodcastStatus
+          script_style?: ScriptStyle
+          host_name?: string
+          co_host_name?: string | null
           canvas_state?: Record<string, unknown>
           created_at?: string
           updated_at?: string
@@ -74,6 +81,9 @@ export type Database = {
           title?: string
           root_topic?: string
           status?: PodcastStatus
+          script_style?: ScriptStyle
+          host_name?: string
+          co_host_name?: string | null
           canvas_state?: Record<string, unknown>
           created_at?: string
           updated_at?: string

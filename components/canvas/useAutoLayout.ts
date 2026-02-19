@@ -4,7 +4,14 @@ import { useCallback, useRef } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import type { PodcastNode } from '@/lib/supabase/types'
 
-const VERTICAL_GAP = 120
+const NODE_HEIGHTS: Record<string, number> = {
+  root: 140,
+  topic: 120,
+  content: 100,
+  ending: 110,
+  more: 80,
+}
+const VERTICAL_PADDING = 40
 const HORIZONTAL_SPACING = 280
 
 interface LayoutPosition {
@@ -61,12 +68,13 @@ export function useAutoLayout() {
         const moreChildren = children.filter(c => c.metadata && c.metadata.isMoreButton)
 
         let totalWidth = HORIZONTAL_SPACING
-        let currentY = y + VERTICAL_GAP
+        const nodeHeight = NODE_HEIGHTS[node.node_type] || 120
+        let currentY = y + nodeHeight + VERTICAL_PADDING
 
-        // Layout content nodes vertically below parent
+        // Layout content nodes vertically below parent (recurse for children)
         for (const contentNode of contentChildren) {
-          positions.push({ id: contentNode.id, x, y: currentY })
-          currentY += VERTICAL_GAP
+          const result = layoutNode(contentNode, x, currentY, depth + 1)
+          currentY += result.height
         }
 
         // Layout topic children below content
@@ -110,7 +118,7 @@ export function useAutoLayout() {
           } else {
             positions.push({ id: endingNode.id, x, y: currentY })
           }
-          currentY += VERTICAL_GAP
+          currentY += (NODE_HEIGHTS['ending'] || 110) + VERTICAL_PADDING
         }
 
         // Layout "more" button below ending
@@ -122,7 +130,7 @@ export function useAutoLayout() {
           } else {
             positions.push({ id: moreNode.id, x, y: currentY })
           }
-          currentY += VERTICAL_GAP
+          currentY += (NODE_HEIGHTS['more'] || 80) + VERTICAL_PADDING
         }
 
         return { width: totalWidth, height: currentY - y }

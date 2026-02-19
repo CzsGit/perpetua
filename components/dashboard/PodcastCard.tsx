@@ -57,15 +57,24 @@ export default function PodcastCard({ podcast, onDelete }: PodcastCardProps) {
       </div>
 
       <div className="flex items-center justify-between">
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            podcast.status === 'completed'
-              ? 'bg-green-400/10 text-green-400'
-              : 'bg-yellow-400/10 text-yellow-400'
-          }`}
-        >
-          {podcast.status === 'completed' ? '已完成' : '草稿'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+              podcast.status === 'completed'
+                ? 'bg-green-400/10 text-green-400'
+                : 'bg-yellow-400/10 text-yellow-400'
+            }`}
+          >
+            {podcast.status === 'completed' ? '已完成' : '草稿'}
+          </span>
+          {podcast.host_name && (
+            <span className="text-xs text-gray-500">
+              {podcast.script_style === 'dialogue' && podcast.co_host_name
+                ? `${podcast.host_name} & ${podcast.co_host_name}`
+                : podcast.host_name}
+            </span>
+          )}
+        </div>
         <span className="text-xs text-gray-500">
           {formatRelativeTime(podcast.updated_at)}
         </span>

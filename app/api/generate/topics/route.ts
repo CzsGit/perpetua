@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { openai, AI_MODEL } from '@/lib/ai/client'
-import { SYSTEM_PROMPT_TOPICS, buildTopicPrompt } from '@/lib/ai/prompts'
+import { getTopicSystemPrompt, buildTopicPrompt } from '@/lib/ai/prompts'
 import { buildContextMessages, compressContext } from '@/lib/ai/context'
 
 export async function POST(request: NextRequest) {
@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      console.error('[topics] Auth failed:', authError?.message || 'No user')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     const completion = await openai.chat.completions.create({
       model: AI_MODEL,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT_TOPICS },
+        { role: 'system', content: getTopicSystemPrompt() },
         ...contextMessages,
         { role: 'user', content: userPrompt },
       ],
@@ -38,10 +39,12 @@ export async function POST(request: NextRequest) {
 
     const generationTime = Date.now() - startTime
     const responseText = completion.choices[0]?.message?.content || ''
+    console.log('[topics] AI response:', generationTime + 'ms,', responseText.length, 'chars')
 
     // Parse JSON array from response
     const jsonMatch = responseText.match(/\[[\s\S]*\]/)
     if (!jsonMatch) {
+      console.error('[topics] Failed to parse JSON array from:', responseText.slice(0, 500))
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 })
     }
 
@@ -73,6 +76,7 @@ export async function POST(request: NextRequest) {
       .select()
 
     if (insertError || !newNodes) {
+      console.error('[topics] Supabase insert failed:', insertError)
       return NextResponse.json({ error: 'Failed to insert topic nodes' }, { status: 500 })
     }
 
@@ -89,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ topics: newNodes })
   } catch (error) {
-    console.error('POST /api/generate/topics error:', error)
+    console.error('[topics] Unhandled error:', error instanceof Error ? { message: error.message, stack: error.stack } : error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

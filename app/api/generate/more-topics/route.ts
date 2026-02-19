@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { openai, AI_MODEL } from '@/lib/ai/client'
-import { SYSTEM_PROMPT_TOPICS, buildTopicPrompt } from '@/lib/ai/prompts'
+import { getTopicSystemPrompt, buildTopicPrompt } from '@/lib/ai/prompts'
 import { buildContextMessages, compressContext } from '@/lib/ai/context'
 
 export async function POST(request: NextRequest) {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const completion = await openai.chat.completions.create({
       model: AI_MODEL,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT_TOPICS },
+        { role: 'system', content: getTopicSystemPrompt() },
         ...contextMessages,
         { role: 'user', content: userPrompt },
       ],

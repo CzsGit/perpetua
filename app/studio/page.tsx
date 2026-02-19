@@ -3,9 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import type { ScriptStyle } from '@/lib/supabase/types'
 
 export default function StudioPage() {
   const [topic, setTopic] = useState('')
+  const [scriptStyle, setScriptStyle] = useState<ScriptStyle>('dialogue')
+  const [hostName, setHostName] = useState('')
+  const [coHostName, setCoHostName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -16,6 +20,9 @@ export default function StudioPage() {
     const trimmed = topic.trim()
     if (!trimmed) return
 
+    const finalHostName = hostName.trim() || '主播'
+    const finalCoHostName = scriptStyle === 'dialogue' ? (coHostName.trim() || '搭档') : null
+
     setLoading(true)
     setError(null)
 
@@ -23,7 +30,13 @@ export default function StudioPage() {
       const res = await fetch('/api/podcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: trimmed, rootTopic: trimmed }),
+        body: JSON.stringify({
+          title: trimmed,
+          rootTopic: trimmed,
+          scriptStyle,
+          hostName: finalHostName,
+          coHostName: finalCoHostName,
+        }),
       })
 
       if (!res.ok) {
@@ -75,7 +88,8 @@ export default function StudioPage() {
           </p>
 
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
+            {/* Topic input */}
+            <div className="mb-5">
               <textarea
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
@@ -84,6 +98,76 @@ export default function StudioPage() {
                 className="w-full resize-none rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
                 disabled={loading}
               />
+            </div>
+
+            {/* Script style selection */}
+            <div className="mb-5">
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                脚本风格
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setScriptStyle('dialogue')}
+                  disabled={loading}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    scriptStyle === 'dialogue'
+                      ? 'border-blue-500 bg-blue-500/10'
+                      : 'border-gray-700 bg-gray-800 hover:border-gray-600'
+                  }`}
+                >
+                  <div className="mb-1 text-sm font-medium text-white">
+                    双人对话
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    两人一唱一和，搭档替听众提问和反应
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScriptStyle('monologue')}
+                  disabled={loading}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    scriptStyle === 'monologue'
+                      ? 'border-blue-500 bg-blue-500/10'
+                      : 'border-gray-700 bg-gray-800 hover:border-gray-600'
+                  }`}
+                >
+                  <div className="mb-1 text-sm font-medium text-white">
+                    单人独白
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    一个人深度讲述，悬念递进
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Host names */}
+            <div className="mb-5">
+              <label className="mb-2 block text-sm font-medium text-gray-300">
+                角色设置
+              </label>
+              <div className={`grid gap-3 ${scriptStyle === 'dialogue' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                <input
+                  type="text"
+                  value={hostName}
+                  onChange={(e) => setHostName(e.target.value)}
+                  placeholder={scriptStyle === 'dialogue' ? '主讲人名字，如：老高' : '主播名字，如：老高'}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                  disabled={loading}
+                />
+                {scriptStyle === 'dialogue' && (
+                  <input
+                    type="text"
+                    value={coHostName}
+                    onChange={(e) => setCoHostName(e.target.value)}
+                    placeholder="搭档名字，如：小茉"
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                    disabled={loading}
+                  />
+                )}
+              </div>
             </div>
 
             {error && (

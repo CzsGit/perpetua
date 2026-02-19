@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { title, rootTopic } = await request.json()
+    const { title, rootTopic, scriptStyle, hostName, coHostName } = await request.json()
 
     if (!title || !rootTopic) {
       return NextResponse.json({ error: 'Title and rootTopic are required' }, { status: 400 })
@@ -24,6 +24,9 @@ export async function POST(request: NextRequest) {
         title,
         root_topic: rootTopic,
         status: 'draft',
+        script_style: scriptStyle || 'monologue',
+        host_name: hostName || '主播',
+        co_host_name: coHostName || null,
         canvas_state: {},
         last_autosave_at: null,
       })

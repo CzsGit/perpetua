@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { openai, AI_MODEL } from '@/lib/ai/client'
-import { SYSTEM_PROMPT_CONTENT, buildContentPrompt } from '@/lib/ai/prompts'
+import { getContentSystemPrompt, buildContentPrompt } from '@/lib/ai/prompts'
+import type { ScriptStyle, PodcastNode } from '@/lib/supabase/types'
 import { buildContextMessages, compressContext } from '@/lib/ai/context'
 
 export async function POST(request: NextRequest) {
@@ -13,7 +14,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { podcastId, nodeId, rootTopic, pathNodes, currentTopic } = await request.json()
+    const { podcastId, nodeId, rootTopic, pathNodes, currentTopic, scriptStyle, hostName, coHostName } = await request.json() as {
+      podcastId: string
+      nodeId: string
+      rootTopic: string
+      pathNodes: PodcastNode[]
+      currentTopic: string
+      scriptStyle?: ScriptStyle
+      hostName?: string
+      coHostName?: string | null
+    }
 
     if (!podcastId || !nodeId || !rootTopic || !currentTopic) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -23,12 +33,18 @@ export async function POST(request: NextRequest) {
     const contextMessages = buildContextMessages(rootTopic, compressed)
     const userPrompt = buildContentPrompt(currentTopic)
 
+    const scriptConfig = {
+      style: scriptStyle || 'monologue' as ScriptStyle,
+      hostName: hostName || '主播',
+      coHostName: coHostName ?? null,
+    }
+
     const startTime = Date.now()
 
     const completion = await openai.chat.completions.create({
       model: AI_MODEL,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT_CONTENT },
+        { role: 'system', content: getContentSystemPrompt(scriptConfig) },
         ...contextMessages,
         { role: 'user', content: userPrompt },
       ],
